@@ -2,10 +2,215 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Hello World</title>
-  </head>
-  <body>
-    Github pages is awesome.
-  </body>
-</html>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style type="text/css">
+      html, body {
+        overflow-x: hidden;
+      }
+      body {
+        width: min(100%, 600px);
+        height: 100%;
+        padding: 0px;
+        margin: 0px;
+        color: #ffffff;
+      }
+      #container {
+        background-color: #000080;
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+        margin: 0px;
+      }
+      h1 {
+        background-color: #ffff00;
+        width: 100%+20px;
+        display: block;
+        color: #000080;
+        padding: 5px;
+        margin: 10px -10px 10px -10px;
+      }
+      a {
+        text-decoration: none;
+        color: white;
+      }
+      hr {
+        color: white;
+      }
+      #bahnhof {
+        width: calc(100% - 25px);
+        padding: 0px;
+        margin: 0px;
+      }
+      #suggest {
+        width: calc(100% - 35px);
+        padding: 5px;
+        margin: 10px 0px 10px 0px;
+        border: 1px white solid;
+        font-family: serif;
+      }
+      #lines {
+        width: calc(100% - 35px - 245px);
+        padding: 0px;
+        margin: 0px;
+      }
+      #direction {
+        width: 120px;
+        padding: 0px;
+        margin: 0px;
+      }
+      #label {
+        display: inline-block;
+        width: 120px;
+        padding: 0px;
+        margin: 0px;
+      }
+    </style>
+    <script src="turbocommons-es5.js"></script>
+    <script type="text/javascript">
+      let StringUtils = org_turbocommons.StringUtils;
+      let abbrs = []
+      let abbrsLower = []
+      let types = []
+      let names = []
+      let namesLower = []
+      let snamesLower = []
+      var timeout = undefined
 
+      fetch('stops.csv')
+        .then(response => response.text())
+        .then((stopsCsv) => {
+          stopsCsv = stopsCsv.split('\n')
+          for(let i=1; i<stopsCsv.length; i++) {
+            let fields = stopsCsv[i].split(';')
+            if( fields.length > 4
+                && ( fields[4].toLowerCase() == 'bf'
+                  || fields[4].toLowerCase() == 'hp' ))
+            {
+              abbrs.push(fields[1])
+              abbrsLower.push(fields[1].toLowerCase())
+              names.push(fields[2])
+              namesLower.push(fields[2].toLowerCase())
+              snamesLower.push(fields[3].toLowerCase())
+              types.push(fields[4])
+            }
+            else {
+              /*console.log('Uebersprungen: '+fields[2]
+                          +' (Kuerzel: '+fields[0]+', Typ: '
+                          +fields[4]+')')*/
+            }
+          }
+          console.log('ingesamt '+abbrs.length+' bahnhoefe/haltepunkte geladen.')
+        })
+
+      function argMax(array) {
+        return array.map((x, i) => [x, i]).reduce((r, a) => (a[0] > r[0] ? a : r))[1];
+      }
+
+      function onInputChange(fullSearch) {
+        if(!fullSearch) {
+          if(timeout) {
+            window.clearTimeout(timeout)
+          }
+          timeout = window.setTimeout(() => {onInputChange(true)}, 1000)
+        }
+
+        let inp = document.getElementById("bahnhof")
+        let query = inp.value.toLowerCase()
+        let incIs = []
+        let sims = []
+
+        for(let i=0; i<abbrs.length; i++) {
+          if(query.length > 2
+              && (namesLower[i].includes(query)
+                || snamesLower[i].includes(query)
+                || abbrsLower[i].includes(query) ))
+          {
+            incIs.push(i)
+            sims.push(0)
+          }
+          else {
+            if(fullSearch) {
+              sims.push(Math.min(StringUtils.compareSimilarityPercent(query, namesLower[i]),
+                                 StringUtils.compareSimilarityPercent(query, snamesLower[i])))
+            }
+            else {
+              sims.push(0)
+            }
+          }
+        }
+
+        let resStr = ''
+        let resCount = 0
+
+        let lines = parseInt(document.getElementById('lines').value)
+        if(!lines) {
+          lines = 25
+          document.getElementById('lines').value = 25
+        }
+
+        let dir = document.getElementById('direction').value
+        if(dir != 'an' && dir != 'ab') {
+          dir = 'an'
+          document.getElementById('direction').value = 'an'
+        }
+
+        function makeLink(i) {
+          return '<a href="https://iris.noncd.db.de/wbt/js/index.html?'
+                      +'typ='+dir+'&style='+dir+'&bhf='
+                      +abbrs[i]+'&Zeilen='
+                      +lines+'" target="_blank">'
+                      +names[i]+'</a><br />';
+        }
+
+        for(let i=0; i<incIs.length; i++) {
+          resStr += makeLink(incIs[i]);
+          resCount++;
+          if(resCount >= 20) {
+            resStr += '...'
+            break
+          }
+        }
+
+        let prefix = ''
+        if(fullSearch && resCount > 0) {
+          prefix += '<hr />'
+        }
+
+        while(resCount < 15) {
+          bestI = argMax(sims)
+          if(sims[bestI] < 10) {
+            break
+          }
+          sims[bestI] = 0
+          resStr += prefix+makeLink(bestI);
+          prefix = ''
+          resCount++;
+        }
+        if(fullSearch) {
+          if(resStr == '') {
+            resStr = '- kein Treffer -'
+          }
+          document.getElementById('suggest').innerHTML = resStr;
+        }
+        else {
+          if(resStr != '') {
+            document.getElementById('suggest').innerHTML = resStr;
+          }
+        }
+      }
+    </script>
+    <title>Bahnhofstafelsuche</title>
+  </head>
+  <body onload="onInputChange()"><div id="container">
+    <h1>Bahnhofstafelsuche</h1>
+    <input autocomplete="false" placeholder="Bahnhof" onkeyup="onInputChange()" id="bahnhof" />
+    <div id="suggest">
+      - kein Treffer -
+    </div>
+    <p id="label">Anzahl Zeilen:</p><input id="lines" type="number" value="25" onchange="onInputChange()" >
+    <select id="direction" onchange="onInputChange()">
+      <option label="Abfahrtstafel" value="ab" />
+      <option label="Ankunftstafel" value="an" />
+    </select>
+  </div></body>
+</html>
