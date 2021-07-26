@@ -35,6 +35,12 @@
         text-decoration: none;
         color: white;
       }
+      .suggestEntry {
+        display: flex;
+        justify-content: space-between;
+        margin: 0px;
+        padding: 0px 5px;
+      }
       hr {
         color: white;
       }
@@ -93,7 +99,10 @@
             let fields = stopsCsv[i].split(';')
             if( fields.length > 4
                 && ( fields[4].toLowerCase() == 'bf'
-                  || fields[4].toLowerCase() == 'hp' ))
+                  || fields[4].toLowerCase() == 'hp' )
+                && !fields[2].includes(' Gbf')
+                && !fields[2].includes(' Hgbf')
+                && !fields[2].includes(' Rbf') )
             {
               abbrs.push(fields[1])
               abbrsLower.push(fields[1].toLowerCase())
@@ -111,8 +120,8 @@
           console.log('ingesamt '+abbrs.length+' bahnhoefe/haltepunkte geladen.')
         })
 
-      function argMax(array) {
-        return array.map((x, i) => [x, i]).reduce((r, a) => (a[0] > r[0] ? a : r))[1];
+      function argmin(array) {
+        return array.map((x, i) => [x, i]).reduce((r, a) => (a[0] > r[0] ? r : a))[1];
       }
 
       function onInputChange(fullSearch) {
@@ -134,24 +143,36 @@
                         .replace('ss', 'ß')
 
         for(let i=0; i<abbrs.length; i++) {
-          if(query.length > 2
-              && (namesLower[i].includes(query)
-                || snamesLower[i].includes(query)
-                || abbrsLower[i].includes(query)
-                || namesLower[i].includes(querySub)
-                || snamesLower[i].includes(querySub) ))
-          {
+          let isMatch = true
+          if(query.length > 2) {
+            let q = query.split(' ')
+            let qSub = querySub.split(' ')
+            for(let j=0; j<q.length; j++) {
+              if (   !namesLower[i].includes(q[j])
+                  && !snamesLower[i].includes(q[j])
+                  && !abbrsLower[i].includes(q[j])
+                  && !namesLower[i].includes(qSub[j])
+                  && !snamesLower[i].includes(qSub[j]) )
+              {
+                isMatch = false
+              }
+            }
+          }
+          else {
+            isMatch = false
+          }
+          if(isMatch) {
             incIs.push(i)
-            sims.push(0)
+            sims.push(1e99)
           }
           else {
             if(fullSearch) {
-              sims.push(Math.min(StringUtils.compareSimilarityPercent(query, namesLower[i]),
-                                 StringUtils.compareSimilarityPercent(querySub, namesLower[i]),
-                                 StringUtils.compareSimilarityPercent(query, snamesLower[i])))
+              sims.push(Math.min(StringUtils.compareByLevenshtein(query, namesLower[i]),
+                                 StringUtils.compareByLevenshtein(querySub, namesLower[i]),
+                                 StringUtils.compareByLevenshtein(query, snamesLower[i])))
             }
             else {
-              sims.push(0)
+              sims.push(1e99)
             }
           }
         }
@@ -175,7 +196,9 @@
           return '<a href="https://iris.noncd.db.de/wbt/js/index.html?'
                       +'typ='+dir+'&style='+dir+'&bhf='
                       +abbrs[i]+'&Zeilen='
-                      +lines+'">'+names[i]+'</a><br />';
+                      +lines+'" class="suggestEntry">'
+                      +'<span>'+names[i]+'</span><span>'
+                      +types[i]+'</span></a>';
         }
 
         for(let i=0; i<incIs.length; i++) {
@@ -193,11 +216,14 @@
         }
 
         while(resCount < 15) {
-          bestI = argMax(sims)
-          if(sims[bestI] < 10) {
+          if(sims.length == 0) {
             break
           }
-          sims[bestI] = 0
+          bestI = argmin(sims)
+          if(sims[bestI]/names[bestI].length > 0.9) {
+            break
+          }
+          sims[bestI] = 1e99
           resStr += prefix+makeLink(bestI);
           prefix = ''
           resCount++;
