@@ -124,6 +124,11 @@
         return array.map((x, i) => [x, i]).reduce((r, a) => (a[0] > r[0] ? r : a))[1];
       }
 
+      function stringDistance(s1, s2) {
+        return StringUtils.compareByLevenshtein(s1, s2)
+                      - Math.sqrt(Math.abs(s2.length-s1.length))
+      }
+
       function onInputChange(fullSearch) {
         if(!fullSearch) {
           if(timeout) {
@@ -167,9 +172,8 @@
           }
           else {
             if(fullSearch) {
-              sims.push(Math.min(StringUtils.compareByLevenshtein(query, namesLower[i]),
-                                 StringUtils.compareByLevenshtein(querySub, namesLower[i]),
-                                 StringUtils.compareByLevenshtein(query, snamesLower[i])))
+              sims.push(Math.min(stringDistance(query, namesLower[i]),
+                                 stringDistance(querySub, namesLower[i])))
             }
             else {
               sims.push(1e99)
@@ -220,7 +224,7 @@
             break
           }
           bestI = argmin(sims)
-          if(sims[bestI]/names[bestI].length > 0.9) {
+          if(query.length <= 2 || sims[bestI]/query.length > .9) {
             break
           }
           sims[bestI] = 1e99
