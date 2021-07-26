@@ -20,7 +20,7 @@
         height: 100%;
         padding: 10px;
         margin: 0px;
-        font-size: 25px;
+        font-size: 22px;
       }
       h1 {
         background-color: #ffff00;
@@ -29,7 +29,7 @@
         color: #000080;
         padding: 5px 10px;
         margin: 10px -10px 10px -10px;
-        font-size: 35px;
+        font-size: 30px;
       }
       a {
         text-decoration: none;
@@ -42,7 +42,7 @@
         width: calc(100% - 25px);
         padding: 0px;
         margin: 0px;
-        font-size: 30px;
+        font-size: 25px;
       }
       #suggest {
         width: calc(100% - 35px);
@@ -55,13 +55,13 @@
         width: max(40px, calc(100% - 35px - 400px));
         padding: 0px;
         margin: 0px;
-        font-size: 20px;
+        font-size: 18px;
       }
       #direction {
         width: 200px;
         padding: 0px;
         margin: 0px;
-        font-size: 20px;
+        font-size: 18px;
       }
       #label {
         display: inline-block;
@@ -128,11 +128,18 @@
         let incIs = []
         let sims = []
 
+        querySub = query.replace('ae', 'ä')
+                        .replace('oe', 'ö')
+                        .replace('ue', 'ü')
+                        .replace('ss', 'ß')
+
         for(let i=0; i<abbrs.length; i++) {
           if(query.length > 2
               && (namesLower[i].includes(query)
                 || snamesLower[i].includes(query)
-                || abbrsLower[i].includes(query) ))
+                || abbrsLower[i].includes(query)
+                || namesLower[i].includes(querySub)
+                || snamesLower[i].includes(querySub) ))
           {
             incIs.push(i)
             sims.push(0)
@@ -140,6 +147,7 @@
           else {
             if(fullSearch) {
               sims.push(Math.min(StringUtils.compareSimilarityPercent(query, namesLower[i]),
+                                 StringUtils.compareSimilarityPercent(querySub, namesLower[i]),
                                  StringUtils.compareSimilarityPercent(query, snamesLower[i])))
             }
             else {
