@@ -1,9 +1,0 @@
-Betriebsstellenkuerzel:
-https://data.deutschebahn.com/dataset/data-betriebsstellen.html
--> Stand von 07/2021 hier als "stops.csv" gespeichert
-
-Abfahrtstafel:
-https://iris.noncd.db.de/wbt/js/index.html?bhf=KA&Zeilen=25
-
-Ankunftstafel:
-https://iris.noncd.db.de/wbt/js/index.html?typ=an&style=an&bhf=KA&Zeilen=25
