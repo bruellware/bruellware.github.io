@@ -38,6 +38,9 @@
         margin-top: 50px;
         font-size: 20px;
       }
+      .hwhite {
+        background-color: #ffffff;
+      }
       a {
         color: white;
       }
@@ -149,6 +152,17 @@
       }
 
       function onInputChange(fullSearch) {
+        hs = Array(...document.getElementsByTagName('h1'))
+        hs.push(...document.getElementsByTagName('h2'))
+        for(let i=0; i<hs.length; i++) {
+          if(document.getElementById('direction').value == 'an') {
+            hs[i].className = 'hwhite';
+          }
+          else { 
+            hs[i].className = '';
+          }
+        }
+
         if(!fullSearch) {
           if(timeout) {
             window.clearTimeout(timeout)
