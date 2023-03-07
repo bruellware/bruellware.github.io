@@ -3,7 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000080" />
+    <link rel="apple-touch-icon" href="/icon-192.png">
     <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+    <link rel="manifest" href="bahnhofstafelsuche.webmanifest" />
     <style type="text/css">
       html, body {
         overflow-x: hidden;
@@ -299,6 +302,24 @@
         Baustellenkarte
 		  </a>
 		<div style="height:20px"></div>
-  </div></body>
+    </div>
+  <script type="text/javascript">
+    (async () => {
+      console.log("about to register a service worker!");
+
+      const registration = await navigator.serviceWorker.register("sw.js", {
+        scope: "./"
+      });
+
+      if (registration.installing) {
+        console.log('Service worker installing');
+      } else if (registration.waiting) {
+        console.log('Service worker installed');
+      } else if (registration.active) {
+        console.log('Service worker active');
+      }
+    })();
+  </script>
+</body>
 </html>
 
