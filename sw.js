@@ -1,5 +1,3 @@
-self.addEventListener("fetch", () => {});
-
 // from https://web.dev/learn/pwa/caching/
 
 const urlsToCache = [
