@@ -109,12 +109,46 @@
     <script src="turbocommons-es5.js"></script>
     <script type="text/javascript">
       let StringUtils = org_turbocommons.StringUtils;
+
+      /**
+       * station code
+       * e.g. "KM" 
+       */
       let abbrs = []
+  
+      /**
+       * station code (lowercased)
+       * e.g. "km" 
+       */
       let abbrsLower = []
+
+      /**
+       * e.g. "BF"
+       */
       let types = []
+
+      /**
+       * human-readable station name
+       * e.g. "Mönchengladbach Hbf"
+       */
       let names = []
+
+      /**
+       * human-readable station name (lowercased)
+       * e.g. "mönchengladbach hbf"
+       */
       let namesLower = []
+
+      /**
+       * human-readable shortened station name (lowercased)
+       * e.g. "m'gladbach hbf"
+       */
       let snamesLower = []
+
+      /** 
+       * a timeout object
+       * used for debouncing on "full searches" 
+       */
       var timeout = undefined
 
       fetch('stops.csv')
@@ -122,6 +156,10 @@
         .then((stopsCsv) => {
           stopsCsv = stopsCsv.split('\n')
           for(let i=1; i<stopsCsv.length; i++) {
+            /*
+             * Sample Line:
+             * DE17110;KM;Mönchengladbach Hbf;M'gladbach Hbf;BF;Bf;Betrieb;20201001;;3;West;20201029 
+             */
             let fields = stopsCsv[i].split(';')
             if( fields.length > 4
                 && ( fields[4].toLowerCase() == 'bf'
@@ -146,16 +184,31 @@
           console.log('ingesamt '+abbrs.length+' bahnhoefe/haltepunkte geladen.')
         })
 
+      /**
+       * finds the smallest value within an array
+       * and returns its index
+       */
       function argmin(array) {
         return array.map((x, i) => [x, i]).reduce((r, a) => (a[0] > r[0] ? r : a))[1];
       }
 
+      /**
+       * Takes two strings, compares them,
+       * and returns a number representing the
+       * difference of them.
+       * 
+       * The higher the number - the more difference
+       */
       function stringDistance(s1, s2) {
         return StringUtils.compareByLevenshtein(s1, s2)
                       - Math.sqrt(Math.abs(s2.length-s1.length))
       }
 
       function onInputChange(fullSearch) {
+        /**
+         * updates the color of the headlines
+         * depending on the selected "direction" 
+         */
         hs = Array(...document.getElementsByTagName('h1'))
         hs.push(...document.getElementsByTagName('h2'))
         for(let i=0; i<hs.length; i++) {
@@ -167,6 +220,14 @@
           }
         }
 
+        /**
+         * small debounce logic!
+         * on regular change events, the function will be called
+         * without the "fullsearch" flag, skipping expensive search operations
+         * and (re-)setting a timeout for a "call with fullsearch".
+         * 
+         * This will limit executions to "1 second after the user stopped changing params"
+         */
         if(!fullSearch) {
           if(timeout) {
             window.clearTimeout(timeout)
@@ -174,9 +235,22 @@
           timeout = window.setTimeout(() => {onInputChange(true)}, 1000)
         }
 
+        // INPUT / read from DOM
         let inp = document.getElementById("bahnhof")
         let query = inp.value.toLowerCase()
+
+        /**
+         * list of indices of "direct matches"
+         */
         let incIs = []
+
+        /**
+         * stores the difference value of the search query
+         * to the station name at the particular index.
+         * 
+         * if it's a direct match, it will instead be hard-locked
+         * to 1e99;
+         */
         let sims = []
 
         querySub = query.replace('ae', 'ä')
@@ -185,10 +259,20 @@
                         .replace('ss', 'ß')
 
         for(let i=0; i<abbrs.length; i++) {
+          /**
+           * searches for "direct matches"
+           * within the names, shortnames and abbreviations,
+           * disregarding case-sensitivity
+           */
           let isMatch = true
           if(query.length > 2) {
             let q = query.split(' ')
             let qSub = querySub.split(' ')
+            /**
+             * tries direct-matching for individual words of the query, 
+             * e.g. "köln essen" matching both "Köln" and "Essen" directly,
+             * because "köln hbf" includes "köln" and "essen hbf" includes "essen"
+             */
             for(let j=0; j<q.length; j++) {
               if (   !namesLower[i].includes(q[j])
                   && !snamesLower[i].includes(q[j])
@@ -208,6 +292,10 @@
             sims.push(1e99)
           }
           else {
+            /** 
+             * "expensive" string distance operation
+             * is skipped if we're not doing a full search! 
+             */
             if(fullSearch) {
               sims.push(Math.min(stringDistance(query, namesLower[i]),
                                  stringDistance(querySub, namesLower[i])))
@@ -218,15 +306,23 @@
           }
         }
 
+        /**
+         * a html string containing the result links
+         */
         let resStr = ''
+        /**
+         * number of result outputs
+         */
         let resCount = 0
 
+        // INPUT / read from DOM
         let lines = parseInt(document.getElementById('lines').value)
         if(!lines) {
           lines = 25
           document.getElementById('lines').value = 25
         }
 
+        // INPUT / read from DOM
         let dir = document.getElementById('direction').value
         if(dir != 'an' && dir != 'ab') {
           dir = 'an'
@@ -242,6 +338,11 @@
                       +types[i]+'</span></a>';
         }
 
+        /**
+         * step 1: fill in all "direct matches" into the "result string"
+         * 
+         * if we have too many, we add an ellipsis indicating "there's more"
+         */
         for(let i=0; i<incIs.length; i++) {
           resStr += makeLink(incIs[i]);
           resCount++;
@@ -256,6 +357,10 @@
           prefix += '<hr />'
         }
 
+        /**
+         * while we have less than 15 results, find the "next best result" 
+         * by similarity (with a threshold) and append it to the "result string" as well 
+         */
         while(resCount < 15) {
           if(sims.length == 0) {
             break
@@ -273,10 +378,12 @@
           if(resStr == '') {
             resStr = '- kein Treffer -'
           }
+          // OUTPUT / render to DOM
           document.getElementById('suggest').innerHTML = resStr;
         }
         else {
           if(resStr != '') {
+            // OUTPUT / render to DOM
             document.getElementById('suggest').innerHTML = resStr;
           }
         }
