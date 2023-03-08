@@ -5,6 +5,7 @@ const urlsToCache = [
     "bahnhofstafelsuche.webmanifest",
     "favicon.ico",
     "icon-192.png",
+    "search.worker.js",
     "stops.csv",
     "turbocommons-es5.js",
 ];

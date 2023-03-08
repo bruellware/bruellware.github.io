@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#000080" />
-    <link rel="apple-touch-icon" href="/icon-192.png">
-    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico" />
     <link rel="manifest" href="bahnhofstafelsuche.webmanifest" />
     <style type="text/css">
-      html, body {
+      html,
+      body {
         overflow-x: hidden;
       }
       body {
@@ -16,7 +17,7 @@
         height: 100%;
         padding: 0px;
         margin: 0px;
-        margin-left: max(0px, calc(100% - 600px)/2);
+        margin-left: max(0px, calc(100% - 600px) / 2);
         color: #ffffff;
       }
       #container {
@@ -27,7 +28,8 @@
         margin: 0px;
         font-size: 22px;
       }
-      h1, h2 {
+      h1,
+      h2 {
         background-color: #ffff00;
         width: 100%+12px;
         display: block;
@@ -48,11 +50,12 @@
       a {
         color: white;
       }
-      input, select{
-        border:1px solid #000;
+      input,
+      select {
+        border: 1px solid #000;
         border-radius: 3px;
         vertical-align: middle;
-        height:24px;
+        height: 24px;
         box-sizing: border-box;
         -moz-box-sizing: border-box;
         -webkit-box-sizing: border-box;
@@ -84,7 +87,7 @@
         font-family: serif;
       }
       #lines {
-        width: 40px; 
+        width: 40px;
         padding: 0px;
         margin: 0px;
         text-align: center;
@@ -106,108 +109,44 @@
         padding-right: 25px;
       }
     </style>
-    <script src="turbocommons-es5.js"></script>
     <script type="text/javascript">
-      let StringUtils = org_turbocommons.StringUtils;
+      const search = (() => {
+        const searchWorker = new Worker('./search.worker.js');
+        searchWorker.onerror = console.error.bind(console);
+        searchWorker.onmessageerror = console.error.bind(console);
 
-      /**
-       * station code
-       * e.g. "KM" 
-       */
-      let abbrs = []
-  
-      /**
-       * station code (lowercased)
-       * e.g. "km" 
-       */
-      let abbrsLower = []
+        const search = (params) => new Promise((resolve, reject) => {
+          const nonce = String(Date.now() * Math.random());
 
-      /**
-       * e.g. "BF"
-       */
-      let types = []
+          const handler = (e) => {
+            const [resultNonce, result] = e.data;
 
-      /**
-       * human-readable station name
-       * e.g. "Mönchengladbach Hbf"
-       */
-      let names = []
+            if (nonce !== resultNonce)
+              return;
 
-      /**
-       * human-readable station name (lowercased)
-       * e.g. "mönchengladbach hbf"
-       */
-      let namesLower = []
+            resolve(result);
 
-      /**
-       * human-readable shortened station name (lowercased)
-       * e.g. "m'gladbach hbf"
-       */
-      let snamesLower = []
+            searchWorker.removeEventListener('message', handler);
+          };
 
-      /** 
-       * a timeout object
-       * used for debouncing on "full searches" 
-       */
-      var timeout = undefined
+          searchWorker.addEventListener('message', handler);
+          console.log([nonce, params]);
+          searchWorker.postMessage([nonce, params]);
+        });
 
-      fetch('stops.csv')
-        .then(response => response.text())
-        .then((stopsCsv) => {
-          stopsCsv = stopsCsv.split('\n')
-          for(let i=1; i<stopsCsv.length; i++) {
-            /*
-             * Sample Line:
-             * DE17110;KM;Mönchengladbach Hbf;M'gladbach Hbf;BF;Bf;Betrieb;20201001;;3;West;20201029 
-             */
-            let fields = stopsCsv[i].split(';')
-            if( fields.length > 4
-                && ( fields[4].toLowerCase() == 'bf'
-                  || fields[4].toLowerCase() == 'hp' )
-                && !fields[2].includes(' Gbf')
-                && !fields[2].includes(' Hgbf')
-                && !fields[2].includes(' Rbf') )
-            {
-              abbrs.push(fields[1])
-              abbrsLower.push(fields[1].toLowerCase())
-              names.push(fields[2])
-              namesLower.push(fields[2].toLowerCase())
-              snamesLower.push(fields[3].toLowerCase())
-              types.push(fields[4])
-            }
-            else {
-              /*console.log('Uebersprungen: '+fields[2]
-                          +' (Kuerzel: '+fields[0]+', Typ: '
-                          +fields[4]+')')*/
-            }
-          }
-          console.log('ingesamt '+abbrs.length+' bahnhoefe/haltepunkte geladen.')
-        })
+        return search;
+      })();
 
-      /**
-       * finds the smallest value within an array
-       * and returns its index
-       */
-      function argmin(array) {
-        return array.map((x, i) => [x, i]).reduce((r, a) => (a[0] > r[0] ? r : a))[1];
-      }
+    /**
+     * a timeout object
+     * used for debouncing on "full searches"
+     */
+    var timeout = undefined;
 
-      /**
-       * Takes two strings, compares them,
-       * and returns a number representing the
-       * difference of them.
-       * 
-       * The higher the number - the more difference
-       */
-      function stringDistance(s1, s2) {
-        return StringUtils.compareByLevenshtein(s1, s2)
-                      - Math.sqrt(Math.abs(s2.length-s1.length))
-      }
-
-      function onInputChange(fullSearch) {
+      async function onInputChange(fullSearch) {
         /**
          * updates the color of the headlines
-         * depending on the selected "direction" 
+         * depending on the selected "direction"
          */
         hs = Array(...document.getElementsByTagName('h1'))
         hs.push(...document.getElementsByTagName('h2'))
@@ -215,7 +154,7 @@
           if(document.getElementById('direction').value == 'an') {
             hs[i].className = 'hwhite';
           }
-          else { 
+          else {
             hs[i].className = '';
           }
         }
@@ -225,7 +164,7 @@
          * on regular change events, the function will be called
          * without the "fullsearch" flag, skipping expensive search operations
          * and (re-)setting a timeout for a "call with fullsearch".
-         * 
+         *
          * This will limit executions to "1 second after the user stopped changing params"
          */
         if(!fullSearch) {
@@ -237,143 +176,34 @@
 
         // INPUT / read from DOM
         let inp = document.getElementById("bahnhof")
-        let query = inp.value.toLowerCase()
+        const query = inp.value.toLowerCase();
 
-        /**
-         * list of indices of "direct matches"
-         */
-        let incIs = []
 
-        /**
-         * stores the difference value of the search query
-         * to the station name at the particular index.
-         * 
-         * if it's a direct match, it will instead be hard-locked
-         * to 1e99;
-         */
-        let sims = []
-
-        querySub = query.replace('ae', 'ä')
-                        .replace('oe', 'ö')
-                        .replace('ue', 'ü')
-                        .replace('ss', 'ß')
-
-        for(let i=0; i<abbrs.length; i++) {
-          /**
-           * searches for "direct matches"
-           * within the names, shortnames and abbreviations,
-           * disregarding case-sensitivity
-           */
-          let isMatch = true
-          if(query.length > 2) {
-            let q = query.split(' ')
-            let qSub = querySub.split(' ')
-            /**
-             * tries direct-matching for individual words of the query, 
-             * e.g. "köln essen" matching both "Köln" and "Essen" directly,
-             * because "köln hbf" includes "köln" and "essen hbf" includes "essen"
-             */
-            for(let j=0; j<q.length; j++) {
-              if (   !namesLower[i].includes(q[j])
-                  && !snamesLower[i].includes(q[j])
-                  && !abbrsLower[i].includes(q[j])
-                  && !namesLower[i].includes(qSub[j])
-                  && !snamesLower[i].includes(qSub[j]) )
-              {
-                isMatch = false
-              }
-            }
-          }
-          else {
-            isMatch = false
-          }
-          if(isMatch) {
-            incIs.push(i)
-            sims.push(1e99)
-          }
-          else {
-            /** 
-             * "expensive" string distance operation
-             * is skipped if we're not doing a full search! 
-             */
-            if(fullSearch) {
-              sims.push(Math.min(stringDistance(query, namesLower[i]),
-                                 stringDistance(querySub, namesLower[i])))
-            }
-            else {
-              sims.push(1e99)
-            }
-          }
-        }
-
-        /**
-         * a html string containing the result links
-         */
-        let resStr = ''
-        /**
-         * number of result outputs
-         */
-        let resCount = 0
 
         // INPUT / read from DOM
-        let lines = parseInt(document.getElementById('lines').value)
-        if(!lines) {
-          lines = 25
-          document.getElementById('lines').value = 25
+        let lines = parseInt(document.getElementById("lines").value);
+        if (!lines) {
+          lines = 25;
+          document.getElementById("lines").value = 25;
         }
 
         // INPUT / read from DOM
-        let dir = document.getElementById('direction').value
-        if(dir != 'an' && dir != 'ab') {
-          dir = 'an'
-          document.getElementById('direction').value = 'an'
+        let dir = document.getElementById("direction").value;
+        if (dir != "an" && dir != "ab") {
+          dir = "an";
+          document.getElementById("direction").value = "an";
         }
 
-        function makeLink(i) {
-          return '<a href="https://iris.noncd.db.de/wbt/js/index.html?'
-                      +'typ='+dir+'&style='+dir+'&bhf='
-                      +abbrs[i]+'&Zeilen='
-                      +lines+'" class="suggestEntry">'
-                      +'<span>'+names[i]+'</span><span>'
-                      +types[i]+'</span></a>';
-        }
+        let resStr = await search({
+          query,
+          lines,
+          dir,
+          fullSearch
+        });
 
-        /**
-         * step 1: fill in all "direct matches" into the "result string"
-         * 
-         * if we have too many, we add an ellipsis indicating "there's more"
-         */
-        for(let i=0; i<incIs.length; i++) {
-          resStr += makeLink(incIs[i]);
-          resCount++;
-          if(resCount >= 20) {
-            resStr += '...'
-            break
-          }
-        }
-
-        let prefix = ''
-        if(fullSearch && resCount > 0) {
-          prefix += '<hr />'
-        }
-
-        /**
-         * while we have less than 15 results, find the "next best result" 
-         * by similarity (with a threshold) and append it to the "result string" as well 
-         */
-        while(resCount < 15) {
-          if(sims.length == 0) {
-            break
-          }
-          bestI = argmin(sims)
-          if(query.length <= 2 || sims[bestI]/query.length > .9) {
-            break
-          }
-          sims[bestI] = 1e99
-          resStr += prefix+makeLink(bestI);
-          prefix = ''
-          resCount++;
-        }
+        //////////////////////////////////////////////
+        // OUTPUT (resultStr)
+        //////////////////////////////////////////////
         if(fullSearch) {
           if(resStr == '') {
             resStr = '- kein Treffer -'
@@ -387,46 +217,55 @@
             document.getElementById('suggest').innerHTML = resStr;
           }
         }
+        //////////////////////////////////////////////
+        // OUTPUT END
+        //////////////////////////////////////////////
       }
     </script>
     <title>Bahnhofstafelsuche</title>
   </head>
-  <body onload="onInputChange()"><div id="container">
-    <h1>Bahnhofstafelsuche</h1>
-    <input autocomplete="false" placeholder="Bahnhof" onkeyup="onInputChange()" id="bahnhof" />
-    <div id="suggest">
-      - kein Treffer -
-    </div>
-    <div id="options" class="options">
-      <p id="label" class="label">Anzahl Zeilen in Tafel:&nbsp;</p><input id="lines" value="25" onchange="onInputChange()" >
-      <select id="direction" onchange="onInputChange()">
-        <option label="Abfahrtstafel" value="ab" />
-        <option label="Ankunftstafel" value="an" />
-      </select>
-    </div>
-    <h2>Sonstiges</h2>
-      <a href="http://db-livemaps.hafas.de/bin/query.exe/dn?L=vs_baustellen&tpl=fullscreenmap">
+  <body onload="onInputChange()">
+    <div id="container">
+      <h1>Bahnhofstafelsuche</h1>
+      <input
+        autocomplete="false"
+        placeholder="Bahnhof"
+        onkeyup="onInputChange()"
+        id="bahnhof"
+      />
+      <div id="suggest">- kein Treffer -</div>
+      <div id="options" class="options">
+        <p id="label" class="label">Anzahl Zeilen in Tafel:&nbsp;</p>
+        <input id="lines" value="25" onchange="onInputChange()" />
+        <select id="direction" onchange="onInputChange()">
+          <option label="Abfahrtstafel" value="ab" />
+          <option label="Ankunftstafel" value="an" />
+        </select>
+      </div>
+      <h2>Sonstiges</h2>
+      <a
+        href="http://db-livemaps.hafas.de/bin/query.exe/dn?L=vs_baustellen&tpl=fullscreenmap"
+      >
         Baustellenkarte
-		  </a>
-		<div style="height:20px"></div>
+      </a>
+      <div style="height: 20px"></div>
     </div>
-  <script type="text/javascript">
-    (async () => {
-      console.log("about to register a service worker!");
+    <script type="text/javascript">
+      (async () => {
+        console.log("about to register a service worker!");
 
-      const registration = await navigator.serviceWorker.register("sw.js", {
-        scope: "./"
-      });
+        const registration = await navigator.serviceWorker.register("sw.js", {
+          scope: "./",
+        });
 
-      if (registration.installing) {
-        console.log('Service worker installing');
-      } else if (registration.waiting) {
-        console.log('Service worker installed');
-      } else if (registration.active) {
-        console.log('Service worker active');
-      }
-    })();
-  </script>
-</body>
+        if (registration.installing) {
+          console.log("Service worker installing");
+        } else if (registration.waiting) {
+          console.log("Service worker installed");
+        } else if (registration.active) {
+          console.log("Service worker active");
+        }
+      })();
+    </script>
+  </body>
 </html>
-
